@@ -1,8 +1,13 @@
 """
 Sagitario.ai - Chatbot con personalidad honesta y directa
 Powered by Google Gemini API + Streamlit
+
+La API Key se toma automáticamente desde la configuración de Streamlit
+(variable de entorno GOOGLE_API_KEY o st.secrets["GOOGLE_API_KEY"]).
+El usuario final NUNCA la ingresa manualmente.
 """
 
+import os
 import streamlit as st
 import google.generativeai as genai
 
@@ -34,17 +39,40 @@ Responde siempre en el idioma en que te escriba el usuario.
 """
 
 # ---------------------------------------------------------------------------
-# Sidebar: configuración de API Key
+# API Key: se obtiene automáticamente desde variable de entorno o st.secrets
+# ---------------------------------------------------------------------------
+def get_api_key():
+    # 1) Variable de entorno
+    env_key = os.environ.get("GOOGLE_API_KEY")
+    if env_key:
+        return env_key
+    # 2) st.secrets (recomendado en Streamlit Community Cloud)
+    try:
+        return st.secrets["GOOGLE_API_KEY"]
+    except Exception:
+        return None
+
+
+api_key = get_api_key()
+
+if api_key:
+    genai.configure(api_key=api_key)
+
+# ---------------------------------------------------------------------------
+# Estado de sesión
+# ---------------------------------------------------------------------------
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+if "message_count" not in st.session_state:
+    st.session_state.message_count = 0
+
+# ---------------------------------------------------------------------------
+# Sidebar (sin input de API key)
 # ---------------------------------------------------------------------------
 with st.sidebar:
     st.title("🏹 Sagitario.ai")
     st.caption("Honesto. Directo. Sin rodeos.")
-
-    api_key = st.text_input(
-        "Google Gemini API Key",
-        type="password",
-        help="Consigue tu API key en https://aistudio.google.com/app/apikey",
-    )
 
     model_name = st.selectbox(
         "Modelo",
@@ -60,18 +88,7 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    st.caption(
-        f"Mensajes enviados: {st.session_state.get('message_count', 0)}"
-    )
-
-# ---------------------------------------------------------------------------
-# Estado de sesión
-# ---------------------------------------------------------------------------
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-if "message_count" not in st.session_state:
-    st.session_state.message_count = 0
+    st.caption(f"Mensajes enviados: {st.session_state.message_count}")
 
 # ---------------------------------------------------------------------------
 # Encabezado
@@ -80,14 +97,12 @@ st.title("🏹 Sagitario.ai")
 st.caption("Tu chatbot honesto y directo, sin filtros innecesarios.")
 
 if not api_key:
-    st.info(
-        "👈 Ingresa tu API Key de Google Gemini en la barra lateral para "
-        "empezar a chatear."
+    st.error(
+        "⚠️ No se encontró la API Key de Google. Configúrala como variable "
+        "de entorno `GOOGLE_API_KEY` o en `st.secrets[\"GOOGLE_API_KEY\"]`. "
+        "Revisa las instrucciones al final de `app.py`."
     )
     st.stop()
-
-# Configurar Gemini con la API key proporcionada
-genai.configure(api_key=api_key)
 
 # ---------------------------------------------------------------------------
 # Mostrar historial de mensajes (incluyendo los "anuncios")
@@ -150,3 +165,25 @@ if user_input:
 
     # Refrescar para actualizar el contador en la sidebar
     st.rerun()
+
+# ---------------------------------------------------------------------------
+# INSTRUCCIONES DE CONFIGURACIÓN (solo para quien despliega la app)
+# ---------------------------------------------------------------------------
+# El usuario final NUNCA necesita ingresar una API key. Tú, como
+# desarrollador/a, la configuras una sola vez de una de estas dos formas:
+#
+# OPCIÓN 1 - Variable de entorno:
+#   En Linux/Mac:
+#       export GOOGLE_API_KEY="tu_api_key_aqui"
+#   En Windows (PowerShell):
+#       $env:GOOGLE_API_KEY="tu_api_key_aqui"
+#
+# OPCIÓN 2 - Archivo de secrets (local):
+#   Crea .streamlit/secrets.toml en la raíz del proyecto con:
+#       GOOGLE_API_KEY = "tu_api_key_aqui"
+#
+# OPCIÓN 3 - Streamlit Community Cloud:
+#   En el panel de tu app, ve a "Settings" > "Secrets" y agrega:
+#       GOOGLE_API_KEY = "tu_api_key_aqui"
+#
+# Consigue tu API key gratuita en: https://aistudio.google.com/app/apikey
